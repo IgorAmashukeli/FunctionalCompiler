@@ -378,8 +378,8 @@ std::string Formula::to_string() const {
 }
 
 Formula::~Formula() {
-  bool to_delete_right = left_ != right_;
   if (to_delete_) {
+    bool to_delete_right = left_ != right_;
     if (formulaType_ != FormulaType::ATOM) {
       delete left_;
 
