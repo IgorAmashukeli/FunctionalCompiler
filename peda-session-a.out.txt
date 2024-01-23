@@ -1,0 +1,2 @@
+break /home/igor/MathProver/Formula.cpp:139
+
