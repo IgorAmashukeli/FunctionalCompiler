@@ -26,17 +26,28 @@ enum { ENGLISH_ALPHABIT_SIZE = 26 };
 
 class WrongVariable : public std::exception {
 public:
+  WrongVariable(const std::string &errorMessage);
   const char *what() const _GLIBCXX_TXN_SAFE_DYN _GLIBCXX_NOTHROW override;
+
+  std::string error_message_;
 };
 
 class WrongAtom : public std::exception {
 public:
+  WrongAtom(const std::string &errorMessage);
   const char *what() const _GLIBCXX_TXN_SAFE_DYN _GLIBCXX_NOTHROW override;
+
+private:
+  std::string error_message_;
 };
 
 class WrongFormula : public std::exception {
 public:
+  WrongFormula(const std::string &errorMessage);
   const char *what() const _GLIBCXX_TXN_SAFE_DYN _GLIBCXX_NOTHROW override;
+
+private:
+  std::string error_message_;
 };
 
 class Variable {

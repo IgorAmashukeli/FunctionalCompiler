@@ -18,51 +18,52 @@
   }
 
 #define CHECK_RANGE1(range, exception)                                         \
-  if (end - start != range) {                                                  \
-    throw exception();                                                         \
+  if (end != start + range) {                                                  \
+    throw exception("Wrong atom length");                                      \
   }
 
 #define CHECK_RANGE2(range, exception)                                         \
-  if (end - start < range) {                                                   \
-    throw exception();                                                         \
+  if (end < start + range) {                                                   \
+    throw exception("Wrong formula length");                                   \
   }
 
 #define CHECK_BRACKETS(words, left, right, exception)                          \
   if ((words[left] != "(") || (words[right] != ")")) {                         \
-    throw exception();                                                         \
+    throw exception("No first open or no last close bracket");                 \
   }
 
 #define CHECK_ATOM(words, start)                                               \
   if ((words[start + 2] != "in")) {                                            \
-    throw WrongAtom();                                                         \
+    throw WrongAtom("No \"in\" in atom!");                                     \
   }
 
 #define CREATE_SUB_VARIABLE(name, args, exp, is_del, to_del)                   \
   try {                                                                        \
     name = new Variable(args);                                                 \
-  } catch (...) {                                                              \
+  } catch (const std::exception &e) {                                          \
     if (is_del) {                                                              \
       delete to_del;                                                           \
     }                                                                          \
-    throw exp();                                                               \
+    throw exp(e.what());                                                       \
   }
 
 #define CREATE_SUB(name, args1, args2, args3, cls, exp, is_del, to_del)        \
   try {                                                                        \
     name = new cls(args1, args2, args3);                                       \
-  } catch (...) {                                                              \
+  } catch (const std::exception &e) {                                          \
     if (is_del) {                                                              \
       delete to_del;                                                           \
     }                                                                          \
-    throw exp();                                                               \
+    throw exp(e.what());                                                       \
   }
 
 #define CHECK_FORMULA_ELEMENTS()                                               \
   for (size_t i = start; i < end; ++i) {                                       \
     if ((!logic_elements.contains(words[i]) && !brackets.contains(words[i]) && \
-         !check_variable(words[i])) ||                                         \
-        brackets_number < 0) {                                                 \
-      throw WrongFormula();                                                    \
+         !check_variable(words[i]))) {                                         \
+      throw WrongFormula("Wrong words in formula");                            \
+    } else if (brackets_number < 0) {                                          \
+      throw WrongFormula("Negative balance in the middle");                    \
     } else if (words[i] == "(") {                                              \
       brackets_number += 1;                                                    \
     } else if (words[i] == ")") {                                              \
@@ -72,7 +73,7 @@
 
 #define CHECK_BALANCE()                                                        \
   if (brackets_number != 0) {                                                  \
-    throw WrongFormula();                                                      \
+    throw WrongFormula("Wrong final balance");                                 \
   }
 
 #define FIND_MIDDLE_WORD()                                                     \
@@ -90,12 +91,12 @@
 
 #define CHECK_MIDDLE_WORD()                                                    \
   if (middle_word == "") {                                                     \
-    throw WrongFormula();                                                      \
+    throw WrongFormula("Wrong operation");                                     \
   }
 
 #define CHECK_FORMULA_RANGE_CONDITION(cond)                                    \
   if (cond) {                                                                  \
-    throw WrongFormula();                                                      \
+    throw WrongFormula("Wrong length of subformula");                          \
   }
 
 #define ASSIGN_FIELDS(left_val, right_val, atom_val, quant_val, del_val,       \
@@ -124,19 +125,28 @@ std::vector<std::string> split(const std::string &str) {
   return words;
 }
 
+WrongVariable::WrongVariable(const std::string &errorMessage)
+    : error_message_(errorMessage) {}
+
 // Variable exception
 const char *WrongVariable::what() const _GLIBCXX_TXN_SAFE_DYN _GLIBCXX_NOTHROW {
-  return "Wrong variable name";
+  return error_message_.c_str();
 }
+
+WrongAtom::WrongAtom(const std::string &errorMessage)
+    : error_message_(errorMessage) {}
 
 // Atom exception
 const char *WrongAtom::what() const _GLIBCXX_TXN_SAFE_DYN _GLIBCXX_NOTHROW {
-  return "Wrong atom name";
+  return error_message_.c_str();
 }
+
+WrongFormula::WrongFormula(const std::string &errorMessage)
+    : error_message_(errorMessage) {}
 
 // Formula exception
 const char *WrongFormula::what() const _GLIBCXX_TXN_SAFE_DYN _GLIBCXX_NOTHROW {
-  return "Wrong formula name";
+  return error_message_.c_str();
 }
 
 // checks that the char is a letter
@@ -179,7 +189,7 @@ Variable::Variable(const std::string &var) {
 
   // if the variable is not correct, throw an exception
   if (!check_variable(var)) {
-    throw WrongVariable();
+    throw WrongVariable("Wrong variable name");
   }
 
   // if the variable is correct, create the variable
@@ -215,8 +225,16 @@ Atom::Atom(const std::vector<std::string> &words, size_t start, size_t end,
 
 Atom::Atom(const std::string &str) : Atom(split(str), 0, 0, true) {}
 
-Atom::Atom(Variable *var) : left_(var), right_(var) {}
-Atom::Atom(Variable *left, Variable *right) : left_(left), right_(right) {}
+Atom::Atom(Variable *var) : left_(var), right_(var) {
+  if (var == NULL) {
+    throw WrongAtom("NULL variable provided");
+  }
+}
+Atom::Atom(Variable *left, Variable *right) : left_(left), right_(right) {
+  if (left == NULL || right == NULL) {
+    throw WrongAtom("NULL variable provided");
+  }
+}
 
 std::string Atom::to_string() const {
   return ("( " + left_->to_string() + " in " + right_->to_string() + " )");
@@ -324,7 +342,7 @@ Formula::Formula(const std::string &str) : Formula(split(str), 0, 0, true) {}
 // constructor to create atom formula
 Formula::Formula(Atom *atom) {
   if (atom == NULL) {
-    throw WrongFormula();
+    throw WrongFormula("NULL atom provided");
   }
   ASSIGN_FIELDS(NULL, NULL, atom, NULL, false, FormulaType::ATOM)
 }
@@ -333,17 +351,23 @@ Formula::Formula(Atom *atom) {
 Formula::Formula(Formula *left, Formula *right, FormulaType formulaType) {
   if (((formulaType != FormulaType::CONJ) &&
        (formulaType != FormulaType::DISJ) &&
-       (formulaType != FormulaType::IMPL)) ||
-      (left == NULL) || (right == NULL)) {
-    throw WrongFormula();
+       (formulaType != FormulaType::IMPL))) {
+    throw WrongFormula("Wrong Formula type provided");
+  }
+  if ((left == NULL) || (right == NULL)) {
+    throw WrongFormula("NULL formula provided");
   }
   ASSIGN_FIELDS(left, right, NULL, NULL, false, formulaType)
 }
 
 // constructor to create (¬ A)
 Formula::Formula(Formula *formula, FormulaType formulaType) {
-  if ((formulaType != FormulaType::NEG) || formula == NULL) {
-    throw WrongFormula();
+  if ((formulaType != FormulaType::NEG)) {
+    throw WrongFormula("Wrong Formula type provided");
+  }
+
+  if (formula == NULL) {
+    throw WrongFormula("NULL formula provided");
   }
 
   ASSIGN_FIELDS(formula, formula, NULL, NULL, false, formulaType);
@@ -353,9 +377,11 @@ Formula::Formula(Formula *formula, FormulaType formulaType) {
 Formula::Formula(Formula *formula, Variable *quantifier_var,
                  FormulaType formulaType) {
   if (((formulaType != FormulaType::FORALL) &&
-       (formulaType != FormulaType::EXISTS)) ||
-      (formula == NULL) || (quantifier_var == NULL)) {
-    throw WrongFormula();
+       (formulaType != FormulaType::EXISTS))) {
+    throw WrongFormula("Wrong Formula type provided");
+  }
+  if ((formula == NULL) || (quantifier_var == NULL)) {
+    throw WrongFormula("NULL formula provided");
   }
 
   ASSIGN_FIELDS(formula, formula, NULL, quantifier_var, false, formulaType);
@@ -429,4 +455,17 @@ int main() {
   Formula formula8 = Formula(&formula5, &formula7, FormulaType::DISJ);
   Formula formula9 = Formula(&formula8, &var2, FormulaType::EXISTS);
   Formula formula10 = Formula(&formula9, &formula9, FormulaType::IMPL);
+  check(formula);
+  check(formula2);
+  check(formula3);
+  check(formula4);
+  check(formula5);
+  check(formula6);
+  check(formula7);
+  check(formula8);
+  check(formula9);
+  check(formula10);
+  Formula formula_n = Formula("( ( exists x ( exists y ( ( s in t ) vee ( u in "
+                              "v ) ) ) ) wedge ( neg ( x in x ) ) )");
+  std::cout << formula_n << "\n";
 }
