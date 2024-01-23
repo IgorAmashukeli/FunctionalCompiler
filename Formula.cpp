@@ -414,7 +414,19 @@ void check(const Formula &formula) {
 }
 
 int main() {
-  Formula formula = Formula(
-      "( exists s ( ( ( cc in mm ) vee ( rr in ss ) ) wedge ( xx in yy ) ) )");
-  std::cout << formula << "\n";
+  Variable left = Variable("a");
+  Variable right = Variable("b");
+  Atom atom = Atom("( mm in cc )");
+  Variable var = Variable("aa");
+  Variable var2 = Variable("bb");
+  Formula formula = Formula(&atom);
+  Formula formula2 = Formula(&formula, &formula, FormulaType::CONJ);
+  Formula formula3 = Formula(&formula, &formula2, FormulaType::DISJ);
+  Formula formula4 = Formula(&formula2, &formula3, FormulaType::IMPL);
+  Formula formula5 = Formula(&formula3, &var, FormulaType::FORALL);
+  Formula formula6 = Formula(&formula4, &var, FormulaType::EXISTS);
+  Formula formula7 = Formula(&formula6, FormulaType::NEG);
+  Formula formula8 = Formula(&formula5, &formula7, FormulaType::DISJ);
+  Formula formula9 = Formula(&formula8, &var2, FormulaType::EXISTS);
+  Formula formula10 = Formula(&formula9, &formula9, FormulaType::IMPL);
 }
