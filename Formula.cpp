@@ -173,6 +173,8 @@ bool check_variable(const std::string &str) {
   return true;
 }
 
+Variable::Variable() {}
+
 Variable::Variable(const std::string &var) {
 
   // if the variable is not correct, throw an exception
@@ -190,6 +192,8 @@ std::ostream &operator<<(std::ostream &os, const Variable &variable) {
   os << variable.to_string();
   return os;
 }
+
+Atom::Atom() {}
 
 Atom::Atom(const std::vector<std::string> &words, size_t start, size_t end,
            bool first) {
@@ -211,8 +215,8 @@ Atom::Atom(const std::vector<std::string> &words, size_t start, size_t end,
 
 Atom::Atom(const std::string &str) : Atom(split(str), 0, 0, true) {}
 
-Atom::Atom(Variable &var) : left_(&var), right_(&var) {}
-Atom::Atom(Variable &left, Variable &right) : left_(&left), right_(&right) {}
+Atom::Atom(Variable *var) : left_(var), right_(var) {}
+Atom::Atom(Variable *left, Variable *right) : left_(left), right_(right) {}
 
 std::string Atom::to_string() const {
   return ("( " + left_->to_string() + " in " + right_->to_string() + " )");
@@ -229,6 +233,8 @@ std::ostream &operator<<(std::ostream &os, const Atom &atom) {
   os << atom.to_string();
   return os;
 }
+
+Formula::Formula() {}
 
 // class Formula
 Formula::Formula(const std::vector<std::string> &words, size_t start,
@@ -389,6 +395,8 @@ Formula::~Formula() {
       } else if ((formulaType_ != FormulaType::NEG) && to_delete_right) {
         delete right_;
       }
+    } else {
+      delete atom_;
     }
   }
 }
@@ -406,29 +414,7 @@ void check(const Formula &formula) {
 }
 
 int main() {
-  Variable left = Variable("a");
-  Variable right = Variable("b");
-  Atom atom = Atom("( mm in cc )");
-  Variable var = Variable("aa");
-  Variable var2 = Variable("bb");
-  Formula formula = Formula(&atom);
-  Formula formula2 = Formula(&formula, &formula, FormulaType::CONJ);
-  Formula formula3 = Formula(&formula, &formula2, FormulaType::DISJ);
-  Formula formula4 = Formula(&formula2, &formula3, FormulaType::IMPL);
-  Formula formula5 = Formula(&formula3, &var, FormulaType::FORALL);
-  Formula formula6 = Formula(&formula4, &var, FormulaType::EXISTS);
-  Formula formula7 = Formula(&formula6, FormulaType::NEG);
-  Formula formula8 = Formula(&formula5, &formula7, FormulaType::DISJ);
-  Formula formula9 = Formula(&formula8, &var2, FormulaType::EXISTS);
-  Formula formula10 = Formula(&formula9, &formula9, FormulaType::IMPL);
-  check(formula);
-  check(formula2);
-  check(formula3);
-  check(formula4);
-  check(formula5);
-  check(formula6);
-  check(formula7);
-  check(formula8);
-  check(formula9);
-  check(formula10);
+  Formula formula = Formula(
+      "( exists s ( ( ( cc in mm ) vee ( rr in ss ) ) wedge ( xx in yy ) ) )");
+  std::cout << formula << "\n";
 }

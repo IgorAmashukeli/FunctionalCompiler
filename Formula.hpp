@@ -41,6 +41,7 @@ public:
 
 class Variable {
 public:
+  Variable();
   explicit Variable(const std::string &var);
 
   std::string to_string() const;
@@ -54,13 +55,14 @@ private:
 // Atom class
 class Atom {
 public:
-  Atom(const std::vector<std::string> &words, size_t start, size_t end,
-       bool first = false);
+  Atom();
+  explicit Atom(const std::vector<std::string> &words, size_t start, size_t end,
+                bool first = false);
 
   explicit Atom(const std::string &str);
 
-  explicit Atom(Variable &var);
-  explicit Atom(Variable &left, Variable &right);
+  explicit Atom(Variable *var);
+  explicit Atom(Variable *left, Variable *right);
 
   std::string to_string() const;
 
@@ -77,6 +79,8 @@ private:
 class Formula {
 
 public:
+  Formula();
+
   // parcer for the formula
   explicit Formula(const std::vector<std::string> &words, size_t start,
                    size_t end, bool first = false);
