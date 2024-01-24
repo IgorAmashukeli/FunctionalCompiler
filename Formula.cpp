@@ -406,27 +406,9 @@ std::ostream &operator<<(std::ostream &os, const Formula &formula) {
   return os;
 }
 
-void check(std::shared_ptr<Formula> &formula) {
-  std::string formula_str = formula->to_string();
-  std::shared_ptr<Formula> formula2 = std::make_shared<Formula>(formula_str);
-  std::string formula2_str = formula2->to_string();
-  if (formula_str != formula2_str) {
-    std::cout << "Wrong\n";
-    exit(-1);
-  }
-}
-
 int main() {
-  for (size_t i = 0; i < 10000; ++i) {
-    std::cout << i + 1 << " OK!\n";
-    std::string input_str;
-    std::getline(std::cin, input_str);
-    std::shared_ptr<Formula> formula;
-    try {
-      formula = std::make_shared<Formula>(input_str);
-    } catch (...) {
-      std::cout << "Wrong\n";
-      exit(-1);
-    }
-  }
+  std::shared_ptr<Formula> formula1 = std::make_shared<Formula>("( a in b )");
+  std::shared_ptr<Formula> formula2 = std::make_shared<Formula>("( c in d )");
+  *formula2 = *formula1;
+  *formula2 = std::move(*formula1);
 }

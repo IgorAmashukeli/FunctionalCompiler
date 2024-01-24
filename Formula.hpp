@@ -51,6 +51,7 @@ private:
   std::string error_message_;
 };
 
+// Variable class
 class Variable {
 public:
   Variable();
@@ -73,8 +74,8 @@ public:
 
   Atom(const Atom &atom) = default;
   Atom &operator=(const Atom &other) = default;
-  Atom(Atom &&other) = delete;
-  Atom &operator=(Atom &&other) = delete;
+  Atom(Atom &&other) = default;
+  Atom &operator=(Atom &&other) = default;
 
   explicit Atom(const std::string &str);
 
@@ -102,8 +103,8 @@ public:
 
   Formula(const Formula &atom) = default;
   Formula &operator=(const Formula &other) = default;
-  Formula(Formula &&other) = delete;
-  Formula &operator=(Formula &&other) = delete;
+  Formula(Formula &&other) = default;
+  Formula &operator=(Formula &&other) = default;
 
   // if you want to get formula from the string, use vector
   explicit Formula(const std::string &str);
