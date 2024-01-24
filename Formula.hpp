@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <assert.h>
 #include <cstddef>
 #include <cwchar>
@@ -70,21 +71,24 @@ public:
   explicit Atom(const std::vector<std::string> &words, size_t start, size_t end,
                 bool first = false);
 
+  Atom(const Atom &atom) = default;
+  Atom &operator=(const Atom &other) = default;
+  Atom(Atom &&other) = delete;
+  Atom &operator=(Atom &&other) = delete;
+
   explicit Atom(const std::string &str);
 
-  explicit Atom(Variable *var);
-  explicit Atom(Variable *left, Variable *right);
+  explicit Atom(std::shared_ptr<Variable> &var);
+  explicit Atom(std::shared_ptr<Variable> &left,
+                std::shared_ptr<Variable> &right);
 
   std::string to_string() const;
 
   friend std::ostream &operator<<(std::ostream &os, const Atom &atom);
 
-  ~Atom();
-
 private:
-  Variable *left_;
-  Variable *right_;
-  bool to_delete_ = false;
+  std::shared_ptr<Variable> left_;
+  std::shared_ptr<Variable> right_;
 };
 
 class Formula {
@@ -96,33 +100,37 @@ public:
   explicit Formula(const std::vector<std::string> &words, size_t start,
                    size_t end, bool first = false);
 
+  Formula(const Formula &atom) = default;
+  Formula &operator=(const Formula &other) = default;
+  Formula(Formula &&other) = delete;
+  Formula &operator=(Formula &&other) = delete;
+
   // if you want to get formula from the string, use vector
   explicit Formula(const std::string &str);
 
   // constructor to create atom formula
-  explicit Formula(Atom *atom);
+  explicit Formula(std::shared_ptr<Atom> &atom);
 
   // constructor to create (A V B), (A ^ B), (A -> B)
-  explicit Formula(Formula *left, Formula *right, FormulaType formulaType);
+  explicit Formula(std::shared_ptr<Formula> &left,
+                   std::shared_ptr<Formula> &right, FormulaType formulaType);
 
   // constructor to create (¬ A)
-  explicit Formula(Formula *formula, FormulaType formulaType);
+  explicit Formula(std::shared_ptr<Formula> &formula, FormulaType formulaType);
 
   // constructor to create (∀ x A), (∃ x A)
-  explicit Formula(Formula *formula, Variable *quantifier_var,
+  explicit Formula(std::shared_ptr<Formula> &formula,
+                   std::shared_ptr<Variable> &quantifier_var,
                    FormulaType formulaType);
 
   std::string to_string() const;
-
-  ~Formula();
 
   friend std::ostream &operator<<(std::ostream &os, const Formula &formula);
 
 private:
   FormulaType formulaType_;
-  Atom *atom_;
-  Formula *left_;
-  Formula *right_;
-  Variable *quantifier_var_;
-  bool to_delete_ = false;
+  std::shared_ptr<Atom> atom_;
+  std::shared_ptr<Formula> left_;
+  std::shared_ptr<Formula> right_;
+  std::shared_ptr<Variable> quantifier_var_;
 };

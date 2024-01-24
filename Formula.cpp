@@ -37,23 +37,17 @@
     throw WrongAtom("No \"in\" in atom!");                                     \
   }
 
-#define CREATE_SUB_VARIABLE(name, args, exp, is_del, to_del)                   \
+#define CREATE_SUB_VARIABLE(name, args, exp)                                   \
   try {                                                                        \
-    name = new Variable(args);                                                 \
+    name = make_shared<Variable>(args);                                        \
   } catch (const std::exception &e) {                                          \
-    if (is_del) {                                                              \
-      delete to_del;                                                           \
-    }                                                                          \
     throw exp(e.what());                                                       \
   }
 
-#define CREATE_SUB(name, args1, args2, args3, cls, exp, is_del, to_del)        \
+#define CREATE_SUB(name, args1, args2, args3, cls, exp)                        \
   try {                                                                        \
-    name = new cls(args1, args2, args3);                                       \
+    name = make_shared<cls>(args1, args2, args3);                              \
   } catch (const std::exception &e) {                                          \
-    if (is_del) {                                                              \
-      delete to_del;                                                           \
-    }                                                                          \
     throw exp(e.what());                                                       \
   }
 
@@ -99,13 +93,11 @@
     throw WrongFormula("Wrong length of subformula");                          \
   }
 
-#define ASSIGN_FIELDS(left_val, right_val, atom_val, quant_val, del_val,       \
-                      type_val)                                                \
+#define ASSIGN_FIELDS(left_val, right_val, atom_val, quant_val, type_val)      \
   left_ = left_val;                                                            \
   right_ = right_val;                                                          \
   atom_ = atom_val;                                                            \
   quantifier_var_ = quant_val;                                                 \
-  to_delete_ = del_val;                                                        \
   formulaType_ = type_val;
 
 // split string into vector of strings by space
@@ -183,7 +175,7 @@ bool check_variable(const std::string &str) {
   return true;
 }
 
-Variable::Variable() {}
+Variable::Variable() { var_ = ""; }
 
 Variable::Variable(const std::string &var) {
 
@@ -203,7 +195,10 @@ std::ostream &operator<<(std::ostream &os, const Variable &variable) {
   return os;
 }
 
-Atom::Atom() {}
+Atom::Atom() {
+  left_ = nullptr;
+  right_ = nullptr;
+}
 
 Atom::Atom(const std::vector<std::string> &words, size_t start, size_t end,
            bool first) {
@@ -216,35 +211,30 @@ Atom::Atom(const std::vector<std::string> &words, size_t start, size_t end,
 
   CHECK_ATOM(words, start);
 
-  CREATE_SUB_VARIABLE(left_, words[start + 1], WrongAtom, false, left_);
+  CREATE_SUB_VARIABLE(left_, words[start + 1], WrongAtom);
 
-  CREATE_SUB_VARIABLE(right_, words[start + 3], WrongAtom, true, left_);
-
-  to_delete_ = true;
+  CREATE_SUB_VARIABLE(right_, words[start + 3], WrongAtom);
 }
 
 Atom::Atom(const std::string &str) : Atom(split(str), 0, 0, true) {}
 
-Atom::Atom(Variable *var) : left_(var), right_(var) {
-  if (var == NULL) {
-    throw WrongAtom("NULL variable provided");
+Atom::Atom(std::shared_ptr<Variable> &var) : left_(var), right_(var) {
+  if (var == nullptr) {
+    throw WrongAtom("nullptr variable provided");
   }
 }
-Atom::Atom(Variable *left, Variable *right) : left_(left), right_(right) {
-  if (left == NULL || right == NULL) {
-    throw WrongAtom("NULL variable provided");
+Atom::Atom(std::shared_ptr<Variable> &left, std::shared_ptr<Variable> &right)
+    : left_(left), right_(right) {
+  if (left == nullptr || right == nullptr) {
+    throw WrongAtom("nullptr variable provided");
   }
 }
 
 std::string Atom::to_string() const {
-  return ("( " + left_->to_string() + " in " + right_->to_string() + " )");
-}
-
-Atom::~Atom() {
-  if (to_delete_) {
-    delete left_;
-    delete right_;
+  if (left_ == nullptr || right_ == nullptr) {
+    throw WrongAtom("Atom was moved, now it is empty, you can't use it");
   }
+  return ("( " + left_->to_string() + " in " + right_->to_string() + " )");
 }
 
 std::ostream &operator<<(std::ostream &os, const Atom &atom) {
@@ -252,7 +242,9 @@ std::ostream &operator<<(std::ostream &os, const Atom &atom) {
   return os;
 }
 
-Formula::Formula() {}
+Formula::Formula() {
+  ASSIGN_FIELDS(nullptr, nullptr, nullptr, nullptr, FormulaType::ATOM);
+}
 
 // class Formula
 Formula::Formula(const std::vector<std::string> &words, size_t start,
@@ -283,17 +275,16 @@ Formula::Formula(const std::vector<std::string> &words, size_t start,
 
   if (middle_word == "in") {
 
-    CREATE_SUB(atom_, words, start, end, Atom, WrongFormula, false, atom_);
-    ASSIGN_FIELDS(NULL, NULL, atom_, NULL, true, FormulaType::ATOM);
+    CREATE_SUB(atom_, words, start, end, Atom, WrongFormula);
+    ASSIGN_FIELDS(nullptr, nullptr, atom_, nullptr, FormulaType::ATOM);
 
   } else if ((middle_word == "neg")) {
 
     CHECK_FORMULA_RANGE_CONDITION((index + 1 > end || end < 1));
 
-    CREATE_SUB(left_, words, index + 1, end - 1, Formula, WrongFormula, false,
-               left_);
+    CREATE_SUB(left_, words, index + 1, end - 1, Formula, WrongFormula);
 
-    ASSIGN_FIELDS(left_, left_, NULL, NULL, true, FormulaType::NEG);
+    ASSIGN_FIELDS(left_, left_, nullptr, nullptr, FormulaType::NEG);
 
   } else if ((middle_word == "wedge") || (middle_word == "vee") ||
              (middle_word == "to")) {
@@ -301,18 +292,16 @@ Formula::Formula(const std::vector<std::string> &words, size_t start,
     CHECK_FORMULA_RANGE_CONDITION(
         (index + 1 > end || end < 1 || start + 1 > index));
 
-    CREATE_SUB(left_, words, start + 1, index, Formula, WrongFormula, false,
-               left_);
+    CREATE_SUB(left_, words, start + 1, index, Formula, WrongFormula);
 
-    CREATE_SUB(right_, words, index + 1, end - 1, Formula, WrongFormula, true,
-               left_);
+    CREATE_SUB(right_, words, index + 1, end - 1, Formula, WrongFormula);
 
     if (middle_word == "wedge") {
-      ASSIGN_FIELDS(left_, right_, NULL, NULL, true, FormulaType::CONJ);
+      ASSIGN_FIELDS(left_, right_, nullptr, nullptr, FormulaType::CONJ);
     } else if (middle_word == "vee") {
-      ASSIGN_FIELDS(left_, right_, NULL, NULL, true, FormulaType::DISJ);
+      ASSIGN_FIELDS(left_, right_, nullptr, nullptr, FormulaType::DISJ);
     } else if (middle_word == "to") {
-      ASSIGN_FIELDS(left_, right_, NULL, NULL, true, FormulaType::IMPL);
+      ASSIGN_FIELDS(left_, right_, nullptr, nullptr, FormulaType::IMPL);
     }
 
   } else if ((middle_word == "forall") || (middle_word == "exists")) {
@@ -320,17 +309,15 @@ Formula::Formula(const std::vector<std::string> &words, size_t start,
     CHECK_FORMULA_RANGE_CONDITION(
         (index + 2 > end || end < 1 || start + 1 > index));
 
-    CREATE_SUB_VARIABLE(quantifier_var_, words[index + 1], WrongFormula, false,
-                        quantifier_var_);
+    CREATE_SUB_VARIABLE(quantifier_var_, words[index + 1], WrongFormula);
 
-    CREATE_SUB(left_, words, index + 2, end - 1, Formula, WrongFormula, true,
-               quantifier_var_);
+    CREATE_SUB(left_, words, index + 2, end - 1, Formula, WrongFormula);
 
     if (middle_word == "forall") {
-      ASSIGN_FIELDS(left_, left_, NULL, quantifier_var_, true,
+      ASSIGN_FIELDS(left_, left_, nullptr, quantifier_var_,
                     FormulaType::FORALL);
     } else {
-      ASSIGN_FIELDS(left_, left_, NULL, quantifier_var_, true,
+      ASSIGN_FIELDS(left_, left_, nullptr, quantifier_var_,
                     FormulaType::EXISTS);
     }
   }
@@ -340,51 +327,56 @@ Formula::Formula(const std::vector<std::string> &words, size_t start,
 Formula::Formula(const std::string &str) : Formula(split(str), 0, 0, true) {}
 
 // constructor to create atom formula
-Formula::Formula(Atom *atom) {
-  if (atom == NULL) {
-    throw WrongFormula("NULL atom provided");
+Formula::Formula(std::shared_ptr<Atom> &atom) : atom_(atom) {
+  if (atom == nullptr) {
+    throw WrongFormula("nullptr atom provided");
   }
-  ASSIGN_FIELDS(NULL, NULL, atom, NULL, false, FormulaType::ATOM)
+  ASSIGN_FIELDS(nullptr, nullptr, atom_, nullptr, FormulaType::ATOM)
 }
 
 // constructor to create (A V B), (A ^ B), (A -> B)
-Formula::Formula(Formula *left, Formula *right, FormulaType formulaType) {
+Formula::Formula(std::shared_ptr<Formula> &left,
+                 std::shared_ptr<Formula> &right, FormulaType formulaType)
+    : left_(left), right_(right) {
   if (((formulaType != FormulaType::CONJ) &&
        (formulaType != FormulaType::DISJ) &&
        (formulaType != FormulaType::IMPL))) {
     throw WrongFormula("Wrong Formula type provided");
   }
-  if ((left == NULL) || (right == NULL)) {
-    throw WrongFormula("NULL formula provided");
+  if ((left == nullptr) || (right == nullptr)) {
+    throw WrongFormula("nullptr formula provided");
   }
-  ASSIGN_FIELDS(left, right, NULL, NULL, false, formulaType)
+  ASSIGN_FIELDS(left_, right_, nullptr, nullptr, formulaType)
 }
 
 // constructor to create (¬ A)
-Formula::Formula(Formula *formula, FormulaType formulaType) {
+Formula::Formula(std::shared_ptr<Formula> &formula, FormulaType formulaType)
+    : left_(formula), right_(formula) {
   if ((formulaType != FormulaType::NEG)) {
     throw WrongFormula("Wrong Formula type provided");
   }
 
-  if (formula == NULL) {
-    throw WrongFormula("NULL formula provided");
+  if (formula == nullptr) {
+    throw WrongFormula("nullptr formula provided");
   }
 
-  ASSIGN_FIELDS(formula, formula, NULL, NULL, false, formulaType);
+  ASSIGN_FIELDS(left_, right_, nullptr, nullptr, formulaType);
 }
 
 // constructor to create (∀ x A), (∃ x A)
-Formula::Formula(Formula *formula, Variable *quantifier_var,
-                 FormulaType formulaType) {
+Formula::Formula(std::shared_ptr<Formula> &formula,
+                 std::shared_ptr<Variable> &quantifier_var,
+                 FormulaType formulaType)
+    : left_(formula), right_(formula), quantifier_var_(quantifier_var) {
   if (((formulaType != FormulaType::FORALL) &&
        (formulaType != FormulaType::EXISTS))) {
     throw WrongFormula("Wrong Formula type provided");
   }
-  if ((formula == NULL) || (quantifier_var == NULL)) {
-    throw WrongFormula("NULL formula provided");
+  if ((formula == nullptr) || (quantifier_var == nullptr)) {
+    throw WrongFormula("nullptr formula provided");
   }
 
-  ASSIGN_FIELDS(formula, formula, NULL, quantifier_var, false, formulaType);
+  ASSIGN_FIELDS(left_, right_, nullptr, quantifier_var_, formulaType);
 }
 
 std::string Formula::to_string() const {
@@ -409,63 +401,32 @@ std::string Formula::to_string() const {
   return "";
 }
 
-Formula::~Formula() {
-  if (to_delete_) {
-    bool to_delete_right = left_ != right_;
-    if (formulaType_ != FormulaType::ATOM) {
-      delete left_;
-
-      if ((formulaType_ == FormulaType::FORALL) ||
-          (formulaType_ == FormulaType::EXISTS)) {
-        delete quantifier_var_;
-      } else if ((formulaType_ != FormulaType::NEG) && to_delete_right) {
-        delete right_;
-      }
-    } else {
-      delete atom_;
-    }
-  }
-}
-
 std::ostream &operator<<(std::ostream &os, const Formula &formula) {
   os << formula.to_string();
   return os;
 }
 
-void check(const Formula &formula) {
-  std::string formula_str = formula.to_string();
-  Formula formula2 = Formula(formula_str);
-  std::string formula2_str = formula2.to_string();
-  assert(formula_str == formula2_str);
+void check(std::shared_ptr<Formula> &formula) {
+  std::string formula_str = formula->to_string();
+  std::shared_ptr<Formula> formula2 = std::make_shared<Formula>(formula_str);
+  std::string formula2_str = formula2->to_string();
+  if (formula_str != formula2_str) {
+    std::cout << "Wrong\n";
+    exit(-1);
+  }
 }
 
 int main() {
-  Variable left = Variable("a");
-  Variable right = Variable("b");
-  Atom atom = Atom("( mm in cc )");
-  Variable var = Variable("aa");
-  Variable var2 = Variable("bb");
-  Formula formula = Formula(&atom);
-  Formula formula2 = Formula(&formula, &formula, FormulaType::CONJ);
-  Formula formula3 = Formula(&formula, &formula2, FormulaType::DISJ);
-  Formula formula4 = Formula(&formula2, &formula3, FormulaType::IMPL);
-  Formula formula5 = Formula(&formula3, &var, FormulaType::FORALL);
-  Formula formula6 = Formula(&formula4, &var, FormulaType::EXISTS);
-  Formula formula7 = Formula(&formula6, FormulaType::NEG);
-  Formula formula8 = Formula(&formula5, &formula7, FormulaType::DISJ);
-  Formula formula9 = Formula(&formula8, &var2, FormulaType::EXISTS);
-  Formula formula10 = Formula(&formula9, &formula9, FormulaType::IMPL);
-  check(formula);
-  check(formula2);
-  check(formula3);
-  check(formula4);
-  check(formula5);
-  check(formula6);
-  check(formula7);
-  check(formula8);
-  check(formula9);
-  check(formula10);
-  Formula formula_n = Formula("( ( exists x ( exists y ( ( s in t ) vee ( u in "
-                              "v ) ) ) ) wedge ( neg ( x in x ) ) )");
-  std::cout << formula_n << "\n";
+  for (size_t i = 0; i < 10000; ++i) {
+    std::cout << i + 1 << " OK!\n";
+    std::string input_str;
+    std::getline(std::cin, input_str);
+    std::shared_ptr<Formula> formula;
+    try {
+      formula = std::make_shared<Formula>(input_str);
+    } catch (...) {
+      std::cout << "Wrong\n";
+      exit(-1);
+    }
+  }
 }
