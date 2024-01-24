@@ -57,6 +57,13 @@ public:
   Variable();
   explicit Variable(const std::string &var);
 
+  Variable(const Variable &atom) = default;
+  Variable &operator=(const Variable &other) = default;
+  Variable(Variable &&other) = default;
+  Variable &operator=(Variable &&other) = default;
+
+  bool is_variable(const std::string &str) const;
+
   std::string to_string() const;
 
   friend std::ostream &operator<<(std::ostream &os, const Variable &variable);
@@ -82,6 +89,8 @@ public:
   explicit Atom(std::shared_ptr<Variable> &var);
   explicit Atom(std::shared_ptr<Variable> &left,
                 std::shared_ptr<Variable> &right);
+
+  bool is_variable(const std::string &str) const;
 
   std::string to_string() const;
 
@@ -123,6 +132,8 @@ public:
   explicit Formula(std::shared_ptr<Formula> &formula,
                    std::shared_ptr<Variable> &quantifier_var,
                    FormulaType formulaType);
+
+  bool is_variable(const std::string &str) const;
 
   std::string to_string() const;
 

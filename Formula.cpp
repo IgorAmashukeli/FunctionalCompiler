@@ -188,6 +188,10 @@ Variable::Variable(const std::string &var) {
   var_ = var;
 }
 
+bool Variable::is_variable(const std::string &str) const {
+  return (str == this->var_);
+}
+
 std::string Variable::to_string() const { return var_; }
 
 std::ostream &operator<<(std::ostream &os, const Variable &variable) {
@@ -228,6 +232,10 @@ Atom::Atom(std::shared_ptr<Variable> &left, std::shared_ptr<Variable> &right)
   if (left == nullptr || right == nullptr) {
     throw WrongAtom("nullptr variable provided");
   }
+}
+
+bool Atom::is_variable(const std::string &str) const {
+  return this->left_->is_variable(str) || this->right_->is_variable(str);
 }
 
 std::string Atom::to_string() const {
@@ -379,6 +387,21 @@ Formula::Formula(std::shared_ptr<Formula> &formula,
   ASSIGN_FIELDS(left_, right_, nullptr, quantifier_var_, formulaType);
 }
 
+bool Formula::is_variable(const std::string &str) const {
+  if (this->formulaType_ == FormulaType::ATOM) {
+    return this->atom_->is_variable(str);
+  } else if (this->formulaType_ == FormulaType::CONJ ||
+             this->formulaType_ == FormulaType::DISJ ||
+             this->formulaType_ == FormulaType::IMPL) {
+    return (this->left_->is_variable(str) || this->right_->is_variable(str));
+  } else if (this->formulaType_ == FormulaType::NEG) {
+    return (this->left_->is_variable(str));
+  } else {
+    return (this->left_->is_variable(str)) ||
+           (quantifier_var_->is_variable(str));
+  }
+}
+
 std::string Formula::to_string() const {
   if (formulaType_ == FormulaType::ATOM) {
     return atom_->to_string();
@@ -406,9 +429,4 @@ std::ostream &operator<<(std::ostream &os, const Formula &formula) {
   return os;
 }
 
-int main() {
-  std::shared_ptr<Formula> formula1 = std::make_shared<Formula>("( a in b )");
-  std::shared_ptr<Formula> formula2 = std::make_shared<Formula>("( c in d )");
-  *formula2 = *formula1;
-  *formula2 = std::move(*formula1);
-}
+int main() {}
