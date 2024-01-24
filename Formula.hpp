@@ -135,6 +135,8 @@ public:
 
   bool is_variable(const std::string &str) const;
 
+  bool is_parameter(const std::string &str) const;
+
   std::string to_string() const;
 
   friend std::ostream &operator<<(std::ostream &os, const Formula &formula);

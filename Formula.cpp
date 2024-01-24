@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cwchar>
 #include <exception>
+#include <fstream>
 #include <ios>
 #include <iostream>
 #include <memory>
@@ -402,6 +403,24 @@ bool Formula::is_variable(const std::string &str) const {
   }
 }
 
+bool Formula::is_parameter(const std::string &str) const {
+  if (formulaType_ == FormulaType::ATOM) {
+    return this->atom_->is_variable(str);
+  } else if (formulaType_ == FormulaType::NEG) {
+    return this->left_->is_parameter(str);
+  } else if ((formulaType_ == FormulaType::CONJ) ||
+             (formulaType_ == FormulaType::DISJ) ||
+             (formulaType_ == FormulaType::IMPL)) {
+    return this->left_->is_parameter(str) || this->right_->is_parameter(str);
+  } else {
+    if (this->quantifier_var_->is_variable(str)) {
+      return false;
+    }
+
+    return this->left_->is_parameter(str);
+  }
+}
+
 std::string Formula::to_string() const {
   if (formulaType_ == FormulaType::ATOM) {
     return atom_->to_string();
@@ -429,4 +448,26 @@ std::ostream &operator<<(std::ostream &os, const Formula &formula) {
   return os;
 }
 
-int main() {}
+int main() {
+  for (size_t a = 0; a < 100; ++a) {
+    std::ofstream outputFile("test3/File" + std::to_string(a + 1) + ".txt");
+    std::string str;
+    std::getline(std::cin, str);
+    std::shared_ptr<Formula> formula = std::make_shared<Formula>(str);
+    for (size_t i = 1; i < 10; ++i) {
+      for (size_t j = 0; j < ENGLISH_ALPHABIT_SIZE; ++j) {
+        char letter1 = 'a' + j;
+        char letter2 = 'A' + j;
+        std::string var1(i, letter1);
+        std::string var2(i, letter2);
+        if (formula->is_parameter(var1)) {
+          outputFile << var1 << "\n";
+        }
+        if (formula->is_parameter(var2)) {
+          outputFile << var2 << "\n";
+        }
+      }
+    }
+    outputFile.close();
+  }
+}
