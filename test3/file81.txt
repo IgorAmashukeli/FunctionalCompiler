@@ -1,8 +1,0 @@
-C
-FFF
-RRR
-UU
-YYYY
-a
-mmmm
-xxxx

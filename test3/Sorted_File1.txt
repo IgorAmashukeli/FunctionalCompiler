@@ -1,6 +1,0 @@
-C
-dd
-J
-N
-sss
-vv

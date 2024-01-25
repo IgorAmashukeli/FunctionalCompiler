@@ -1,8 +1,0 @@
-CC
-cccc
-gggg
-ooo
-PPP
-SSS
-wwww
-XX

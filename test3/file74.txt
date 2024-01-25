@@ -1,4 +1,0 @@
-CC
-LLL
-RR
-vvvv

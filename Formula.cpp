@@ -195,6 +195,20 @@ bool Variable::is_variable(const std::string &str) const {
 
 std::string Variable::to_string() const { return var_; }
 
+// change variable
+void Variable::substitute(const std::string &old_str,
+                          const std::string &new_str) {
+  if (!check_variable(new_str)) {
+    throw WrongVariable("Wrong name to substitute");
+  }
+
+  if (old_str == this->var_) {
+    this->var_ = new_str;
+  }
+
+  // else this->var_ = this->var_ (nothing to do)
+}
+
 std::ostream &operator<<(std::ostream &os, const Variable &variable) {
   os << variable.to_string();
   return os;
@@ -244,6 +258,17 @@ std::string Atom::to_string() const {
     throw WrongAtom("Atom was moved, now it is empty, you can't use it");
   }
   return ("( " + left_->to_string() + " in " + right_->to_string() + " )");
+}
+
+// change variable
+void Atom::substitute(const std::string &old_str, const std::string &new_str) {
+  if (!check_variable(new_str)) {
+    throw WrongVariable("Wrong name to substitute");
+  }
+
+  // substitute to both sides of "in"
+  left_->substitute(old_str, new_str);
+  right_->substitute(old_str, new_str);
 }
 
 std::ostream &operator<<(std::ostream &os, const Atom &atom) {
@@ -413,12 +438,77 @@ bool Formula::is_parameter(const std::string &str) const {
              (formulaType_ == FormulaType::IMPL)) {
     return this->left_->is_parameter(str) || this->right_->is_parameter(str);
   } else {
+
+    // variable under quantifier is not free
     if (this->quantifier_var_->is_variable(str)) {
       return false;
     }
 
     return this->left_->is_parameter(str);
   }
+}
+
+std::set<std::string> Formula::find_all_variables() const {
+  std::set<std::string> variables = {};
+  std::string formula_str = this->to_string();
+  std::vector<std::string> words = split(formula_str);
+  for (const auto &word : words) {
+    if (check_variable(word)) {
+      variables.insert(word);
+    }
+  }
+
+  return variables;
+}
+
+std::set<std::string> Formula::find_all_parameters() const {
+  std::set<std::string> parameters = {};
+  std::string formula_str = this->to_string();
+  std::vector<std::string> words = split(formula_str);
+  for (const auto &word : words) {
+    if (is_parameter(word)) {
+      parameters.insert(word);
+    }
+  }
+
+  return parameters;
+}
+
+std::string Formula::new_variable() const {
+  std::set<std::string> variables = find_all_variables();
+  if (variables.empty()) {
+    throw WrongFormula("No variable in formula!");
+  }
+
+  std::string last_variable = *(--variables.end());
+  if (last_variable.empty()) {
+    throw WrongVariable("Wrong (empty) variable in formula");
+  }
+
+  if (last_variable[0] != 'z' && last_variable[0] != 'Z' &&
+      last_variable[0] != 'd' && last_variable[0] != 'D' &&
+      last_variable[0] != 'h' && last_variable[0] != 'H') {
+    for (size_t i = 0; i < last_variable.size(); ++i) {
+      last_variable[i] = last_variable[i] + 1;
+    }
+  } else if (last_variable[0] == 'd' || last_variable[0] == 'D' ||
+             last_variable[0] == 'h' || last_variable[0] == 'H') {
+    for (size_t i = 0; i < last_variable.size(); ++i) {
+      last_variable[i] = last_variable[i] + 2;
+    }
+  } else if (last_variable[0] == 'z') {
+    for (size_t i = 0; i < last_variable.size(); ++i) {
+      last_variable[i] = 'a';
+    }
+    last_variable += 'a';
+  } else {
+    for (size_t i = 0; i < last_variable.size(); ++i) {
+      last_variable[i] = 'A';
+    }
+    last_variable += 'A';
+  }
+
+  return last_variable;
 }
 
 std::string Formula::to_string() const {
@@ -443,31 +533,77 @@ std::string Formula::to_string() const {
   return "";
 }
 
+// change variable
+void Formula::substitute(const std::string &old_str,
+                         const std::string &new_str) {
+  if (!check_variable(new_str)) {
+    throw WrongVariable("Wrong name to substitute");
+  }
+
+  if (this->formulaType_ == FormulaType::ATOM) {
+
+    // substitute to the Atom
+    this->atom_->substitute(old_str, new_str);
+
+  } else if (this->formulaType_ == FormulaType::NEG) {
+
+    // substitute to the subformula under negation
+    this->left_->substitute(old_str, new_str);
+
+  } else if ((this->formulaType_ == FormulaType::CONJ) ||
+             (this->formulaType_ == FormulaType::DISJ) ||
+             (this->formulaType_ == FormulaType::IMPL)) {
+
+    // substitute to the both sides of an operation
+    this->left_->substitute(old_str, new_str);
+    this->right_->substitute(old_str, new_str);
+
+  } else {
+
+    // if old variable is the one under quantifier (for example, x) ->
+    // in ( Q x A ) no free variable x -> nothing to do
+    // if formula is ( Q y A ), where y != x
+    // => there can be free x in A => substitute in A
+    if (!this->quantifier_var_->is_variable(old_str)) {
+
+      this->left_->substitute(old_str, new_str);
+    }
+  }
+}
+
 std::ostream &operator<<(std::ostream &os, const Formula &formula) {
   os << formula.to_string();
   return os;
 }
 
 int main() {
-  for (size_t a = 0; a < 100; ++a) {
-    std::ofstream outputFile("test3/File" + std::to_string(a + 1) + ".txt");
-    std::string str;
-    std::getline(std::cin, str);
-    std::shared_ptr<Formula> formula = std::make_shared<Formula>(str);
-    for (size_t i = 1; i < 10; ++i) {
-      for (size_t j = 0; j < ENGLISH_ALPHABIT_SIZE; ++j) {
-        char letter1 = 'a' + j;
-        char letter2 = 'A' + j;
-        std::string var1(i, letter1);
-        std::string var2(i, letter2);
-        if (formula->is_parameter(var1)) {
-          outputFile << var1 << "\n";
-        }
-        if (formula->is_parameter(var2)) {
-          outputFile << var2 << "\n";
-        }
-      }
+  for (size_t i = 0; i < 100; ++i) {
+    std::string formula_str;
+    std::getline(std::cin, formula_str);
+
+    std::shared_ptr formula = std::make_shared<Formula>(formula_str);
+    std::string new_var = formula->new_variable();
+    std::set<std::string> parameters = formula->find_all_parameters();
+
+    if (parameters.empty()) {
+      continue;
     }
-    outputFile.close();
+
+    size_t j = rand() % (parameters.size());
+
+    auto start = parameters.begin();
+    for (size_t k = 0; k < j; ++k) {
+      ++start;
+    }
+
+    std::string first_param = *start;
+
+    assert(first_param != new_var);
+
+    std::string formula_before_substitution = formula->to_string();
+    formula->substitute(first_param, new_var);
+    formula->substitute(new_var, first_param);
+    std::string formula_after_substitution = formula->to_string();
+    assert(formula_before_substitution == formula_after_substitution);
   }
 }

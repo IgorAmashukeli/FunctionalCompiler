@@ -8,9 +8,9 @@
 #include <iostream>
 #include <memory>
 #include <ostream>
+#include <set>
 #include <sstream>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 enum class FormulaType {
@@ -64,6 +64,8 @@ public:
 
   bool is_variable(const std::string &str) const;
 
+  void substitute(const std::string &old_str, const std::string &new_str);
+
   std::string to_string() const;
 
   friend std::ostream &operator<<(std::ostream &os, const Variable &variable);
@@ -91,6 +93,8 @@ public:
                 std::shared_ptr<Variable> &right);
 
   bool is_variable(const std::string &str) const;
+
+  void substitute(const std::string &old_str, const std::string &new_str);
 
   std::string to_string() const;
 
@@ -136,6 +140,14 @@ public:
   bool is_variable(const std::string &str) const;
 
   bool is_parameter(const std::string &str) const;
+
+  std::set<std::string> find_all_variables() const;
+
+  std::set<std::string> find_all_parameters() const;
+
+  std::string new_variable() const;
+
+  void substitute(const std::string &old_str, const std::string &new_str);
 
   std::string to_string() const;
 

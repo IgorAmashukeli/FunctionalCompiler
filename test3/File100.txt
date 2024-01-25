@@ -1,9 +1,0 @@
-M
-DD
-YY
-ccc
-FFF
-NNN
-bbbb
-gggg
-JJJJ
