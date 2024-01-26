@@ -101,6 +101,13 @@
   quantifier_var_ = quant_val;                                                 \
   formulaType_ = type_val;
 
+#define COPY(other, field, cls)                                                \
+  if (other.field == nullptr) {                                                \
+    this->field = nullptr;                                                     \
+  } else {                                                                     \
+    this->field = std::make_shared<cls>(*other.field);                         \
+  }
+
 // split string into vector of strings by space
 std::vector<std::string> split(const std::string &str) {
 
@@ -219,6 +226,17 @@ Atom::Atom() {
   right_ = nullptr;
 }
 
+Atom::Atom(const Atom &other) {
+  this->left_ = std::make_shared<Variable>(*other.left_);
+  this->right_ = std::make_shared<Variable>(*other.right_);
+}
+
+Atom &Atom::operator=(const Atom &other) {
+  this->left_ = std::make_shared<Variable>(*other.left_);
+  this->right_ = std::make_shared<Variable>(*other.right_);
+  return *this;
+}
+
 Atom::Atom(const std::vector<std::string> &words, size_t start, size_t end,
            bool first) {
 
@@ -291,7 +309,7 @@ Formula::Formula(const std::vector<std::string> &words, size_t start,
   CHECK_BRACKETS(words, start, end - 1, WrongFormula);
 
   std::unordered_set<std::string> logic_elements = {
-      "forall", "exists", "in", "wedge", "vee", "neg", "to"};
+      "forall", "exists", "in", "wedge", "vee", "neg", "to", "leftrightarrow"};
   std::unordered_set<std::string> brackets = {"(", ")"};
 
   int brackets_number = 0;
@@ -321,7 +339,7 @@ Formula::Formula(const std::vector<std::string> &words, size_t start,
     ASSIGN_FIELDS(left_, left_, nullptr, nullptr, FormulaType::NEG);
 
   } else if ((middle_word == "wedge") || (middle_word == "vee") ||
-             (middle_word == "to")) {
+             (middle_word == "to") || (middle_word == "leftrightarrow")) {
 
     CHECK_FORMULA_RANGE_CONDITION(
         (index + 1 > end || end < 1 || start + 1 > index));
@@ -336,6 +354,8 @@ Formula::Formula(const std::vector<std::string> &words, size_t start,
       ASSIGN_FIELDS(left_, right_, nullptr, nullptr, FormulaType::DISJ);
     } else if (middle_word == "to") {
       ASSIGN_FIELDS(left_, right_, nullptr, nullptr, FormulaType::IMPL);
+    } else if (middle_word == "leftrightarrow") {
+      ASSIGN_FIELDS(left_, right_, nullptr, nullptr, FormulaType::EQUIV);
     }
 
   } else if ((middle_word == "forall") || (middle_word == "exists")) {
@@ -368,13 +388,14 @@ Formula::Formula(std::shared_ptr<Atom> &atom) : atom_(atom) {
   ASSIGN_FIELDS(nullptr, nullptr, atom_, nullptr, FormulaType::ATOM)
 }
 
-// constructor to create (A V B), (A ^ B), (A -> B)
+// constructor to create (A V B), (A ^ B), (A -> B), (A <-> B)
 Formula::Formula(std::shared_ptr<Formula> &left,
                  std::shared_ptr<Formula> &right, FormulaType formulaType)
     : left_(left), right_(right) {
   if (((formulaType != FormulaType::CONJ) &&
        (formulaType != FormulaType::DISJ) &&
-       (formulaType != FormulaType::IMPL))) {
+       (formulaType != FormulaType::IMPL) &&
+       (formulaType != FormulaType::EQUIV))) {
     throw WrongFormula("Wrong Formula type provided");
   }
   if ((left == nullptr) || (right == nullptr)) {
@@ -413,12 +434,33 @@ Formula::Formula(std::shared_ptr<Formula> &formula,
   ASSIGN_FIELDS(left_, right_, nullptr, quantifier_var_, formulaType);
 }
 
+Formula::Formula(const Formula &other) {
+  this->formulaType_ = other.formulaType_;
+
+  COPY(other, left_, Formula);
+  COPY(other, right_, Formula);
+  COPY(other, atom_, Atom);
+  COPY(other, quantifier_var_, Variable);
+}
+
+Formula &Formula::operator=(const Formula &other) {
+  this->formulaType_ = other.formulaType_;
+
+  COPY(other, left_, Formula);
+  COPY(other, right_, Formula);
+  COPY(other, atom_, Atom);
+  COPY(other, quantifier_var_, Variable);
+
+  return *this;
+}
+
 bool Formula::is_variable(const std::string &str) const {
   if (this->formulaType_ == FormulaType::ATOM) {
     return this->atom_->is_variable(str);
   } else if (this->formulaType_ == FormulaType::CONJ ||
              this->formulaType_ == FormulaType::DISJ ||
-             this->formulaType_ == FormulaType::IMPL) {
+             this->formulaType_ == FormulaType::IMPL ||
+             this->formulaType_ == FormulaType::EQUIV) {
     return (this->left_->is_variable(str) || this->right_->is_variable(str));
   } else if (this->formulaType_ == FormulaType::NEG) {
     return (this->left_->is_variable(str));
@@ -435,7 +477,8 @@ bool Formula::is_parameter(const std::string &str) const {
     return this->left_->is_parameter(str);
   } else if ((formulaType_ == FormulaType::CONJ) ||
              (formulaType_ == FormulaType::DISJ) ||
-             (formulaType_ == FormulaType::IMPL)) {
+             (formulaType_ == FormulaType::IMPL) ||
+             (formulaType_ == FormulaType::EQUIV)) {
     return this->left_->is_parameter(str) || this->right_->is_parameter(str);
   } else {
 
@@ -520,6 +563,9 @@ std::string Formula::to_string() const {
     return "( " + left_->to_string() + " vee " + right_->to_string() + " )";
   } else if (formulaType_ == FormulaType::IMPL) {
     return "( " + left_->to_string() + " to " + right_->to_string() + " )";
+  } else if (formulaType_ == FormulaType::EQUIV) {
+    return "( " + left_->to_string() + " leftrightarrow " +
+           right_->to_string() + " )";
   } else if (formulaType_ == FormulaType::NEG) {
     return "( neg " + left_->to_string() + " )";
   } else if (formulaType_ == FormulaType::EXISTS) {
@@ -533,7 +579,8 @@ std::string Formula::to_string() const {
   return "";
 }
 
-// change variable
+// substitute a variable
+// formula(y/x)
 void Formula::substitute(const std::string &old_str,
                          const std::string &new_str) {
   if (!check_variable(new_str)) {
@@ -552,7 +599,8 @@ void Formula::substitute(const std::string &old_str,
 
   } else if ((this->formulaType_ == FormulaType::CONJ) ||
              (this->formulaType_ == FormulaType::DISJ) ||
-             (this->formulaType_ == FormulaType::IMPL)) {
+             (this->formulaType_ == FormulaType::IMPL) ||
+             (this->formulaType_ == FormulaType::EQUIV)) {
 
     // substitute to the both sides of an operation
     this->left_->substitute(old_str, new_str);
@@ -571,39 +619,65 @@ void Formula::substitute(const std::string &old_str,
   }
 }
 
+// checks whether one can substitute a variable in another variable
+// y - x - formula
+bool Formula::can_substitute(const std::string &old_str,
+                             const std::string &new_str) const {
+
+  // quantifiers => no quantifiers with y variable
+  if (this->formulaType_ == FormulaType::ATOM) {
+    return true;
+
+    // negation doesn't add quantifiers => ask left_
+  } else if (this->formulaType_ == FormulaType::NEG) {
+    return this->left_->can_substitute(old_str, new_str);
+
+    // if something wrong in left or right => can't substitute
+    // if everything ok both in left and right => can substitute
+  } else if ((this->formulaType_ == FormulaType::CONJ) ||
+             (this->formulaType_ == FormulaType::DISJ) ||
+             (this->formulaType_ == FormulaType::IMPL) ||
+             (this->formulaType_ == FormulaType::EQUIV)) {
+    return this->left_->can_substitute(old_str, new_str) &&
+           this->right_->can_substitute(old_str, new_str);
+
+    // (Q z A)
+  } else {
+
+    // z == x (old_str)
+    // => no free variables in (Q x A) => can substitute
+    if (this->quantifier_var_->is_variable(old_str)) {
+      return true;
+
+      // z != x
+      // => 2 possible cases:
+      // a) can substitute in A (no y (new_str) quantifiers) + z quantifier is
+      // not y quantifier =>
+      // => can substitute in (Q x A) too
+      //
+      // b) x is not a parameter in A => can substitute (nothing will
+      // change)
+      //
+      // if a is not true and b is not true => two possible cases:
+      // a) x is a parameter in A + can't substitute in A => can't substitute in
+      // (Q z A), because it consists A
+      //
+      // b) x is a parameter in A + z quantifier is actually y quantifier =>
+      // => x is a parameter in (Q z A), because x != z => after possible
+      // substitution there will be y variable in parameter place in A and it
+      // will be quantified by y
+      // => can't substitute
+    } else {
+      return ((!this->quantifier_var_->is_variable(new_str) &&
+               this->left_->can_substitute(old_str, new_str)) ||
+              (!this->is_parameter(old_str)));
+    }
+  }
+}
+
 std::ostream &operator<<(std::ostream &os, const Formula &formula) {
   os << formula.to_string();
   return os;
 }
 
-int main() {
-  for (size_t i = 0; i < 100; ++i) {
-    std::string formula_str;
-    std::getline(std::cin, formula_str);
-
-    std::shared_ptr formula = std::make_shared<Formula>(formula_str);
-    std::string new_var = formula->new_variable();
-    std::set<std::string> parameters = formula->find_all_parameters();
-
-    if (parameters.empty()) {
-      continue;
-    }
-
-    size_t j = rand() % (parameters.size());
-
-    auto start = parameters.begin();
-    for (size_t k = 0; k < j; ++k) {
-      ++start;
-    }
-
-    std::string first_param = *start;
-
-    assert(first_param != new_var);
-
-    std::string formula_before_substitution = formula->to_string();
-    formula->substitute(first_param, new_var);
-    formula->substitute(new_var, first_param);
-    std::string formula_after_substitution = formula->to_string();
-    assert(formula_before_substitution == formula_after_substitution);
-  }
-}
+int main() {}

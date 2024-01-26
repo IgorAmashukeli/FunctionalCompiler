@@ -19,8 +19,9 @@ enum class FormulaType {
   DISJ = 2,
   CONJ = 3,
   IMPL = 4,
-  EXISTS = 5,
-  FORALL = 6
+  EQUIV = 5,
+  EXISTS = 6,
+  FORALL = 7
 };
 
 enum { ENGLISH_ALPHABIT_SIZE = 26 };
@@ -81,8 +82,8 @@ public:
   explicit Atom(const std::vector<std::string> &words, size_t start, size_t end,
                 bool first = false);
 
-  Atom(const Atom &atom) = default;
-  Atom &operator=(const Atom &other) = default;
+  Atom(const Atom &atom);
+  Atom &operator=(const Atom &other);
   Atom(Atom &&other) = default;
   Atom &operator=(Atom &&other) = default;
 
@@ -114,8 +115,8 @@ public:
   explicit Formula(const std::vector<std::string> &words, size_t start,
                    size_t end, bool first = false);
 
-  Formula(const Formula &atom) = default;
-  Formula &operator=(const Formula &other) = default;
+  Formula(const Formula &other);
+  Formula &operator=(const Formula &other);
   Formula(Formula &&other) = default;
   Formula &operator=(Formula &&other) = default;
 
@@ -125,7 +126,7 @@ public:
   // constructor to create atom formula
   explicit Formula(std::shared_ptr<Atom> &atom);
 
-  // constructor to create (A V B), (A ^ B), (A -> B)
+  // constructor to create (A V B), (A ^ B), (A -> B), (A <-> B)
   explicit Formula(std::shared_ptr<Formula> &left,
                    std::shared_ptr<Formula> &right, FormulaType formulaType);
 
@@ -148,6 +149,9 @@ public:
   std::string new_variable() const;
 
   void substitute(const std::string &old_str, const std::string &new_str);
+
+  bool can_substitute(const std::string &old_str,
+                      const std::string &new_str) const;
 
   std::string to_string() const;
 

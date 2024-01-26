@@ -122,3 +122,60 @@ and run this in MathPorver directory:
 g++ -g -fsanitize=address --std=c++20 Formula.cpp
 
 ./a.out < test4/valid_formulas.txt
+
+# To run the fifth test (added equivalence, added can_substitute, changed copy constructors, and copy assignment operators to actually copy the underlying data)
+
+add this to main:
+
+int main() {
+for (size_t i = 0; i < 1000; ++i) {
+std::string formula_str;
+std::getline(std::cin, formula_str);
+std::shared_ptr<Formula> formula = std::make_shared<Formula>(formula_str);
+std::shared_ptr<Formula> formula2 = std::make_shared<Formula>("( a in a )");
+*formula2 = *formula;
+std::set<std::string> variables = formula->find_all_variables();
+assert(!variables.empty());
+auto start = variables.begin();
+size_t j = rand() % variables.size();
+size_t k = rand() % variables.size();
+std::string old_var = *std::next(start, j);
+std::string new_var = *std::next(start, k);
+std::string absolutely_new_var = formula->new_variable();
+if (formula->can_substitute(old_var, new_var) &&
+formula->can_substitute(new_var, old_var)) {
+formula->substitute(old_var, new_var);
+formula->substitute(new_var, absolutely_new_var);
+formula2->substitute(new_var, old_var);
+formula2->substitute(old_var, absolutely_new_var);
+std::string formula_str = formula->to_string();
+std::string formula2_str = formula2->to_string();
+if (formula_str != formula2_str) {
+std::cout << i + 1 << " Wrong\n";
+} else {
+std::cout << i + 1 << " OK!\n";
+}
+
+    } else {
+      formula->can_substitute(new_var, old_var);
+      formula->substitute(old_var, new_var);
+      formula->substitute(new_var, absolutely_new_var);
+      formula2->substitute(new_var, old_var);
+      formula2->substitute(old_var, absolutely_new_var);
+      std::string formula_str = formula->to_string();
+      std::string formula2_str = formula2->to_string();
+      if (formula_str == formula2_str) {
+        std::cout << i + 1 << " Wrong\n";
+      } else {
+        std::cout << i + 1 << " OK!\n";
+      }
+    }
+
+}
+}
+
+and run this:
+
+g++ -g -fsanitize=address --std=c++20 Formula.cpp
+
+./a.out < test5/valid_formulas.txt
